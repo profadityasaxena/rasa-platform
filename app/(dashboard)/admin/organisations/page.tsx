@@ -101,7 +101,7 @@ export default async function AdminOrganisationsPage({
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <Badge variant="default">{ORG_TYPE_LABELS[r.organizationType] ?? r.organizationType}</Badge>
+                      <Badge variant="default">{ORG_TYPE_LABELS[r.organizationType as keyof typeof ORG_TYPE_LABELS] ?? String(r.organizationType)}</Badge>
                     </td>
                     <td className="px-4 py-3">
                       <p className="text-[#1F2937]">{r.contactName}</p>
