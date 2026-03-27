@@ -1,0 +1,103 @@
+RASA Landing Page — Design Philosophy
+======================================
+
+PROMPT INTENT
+-------------
+The landing page must feel like it was designed by Steve Jobs.
+Core values: extreme simplicity, clarity of message, cinematic feeling,
+focused call-to-action, beautiful typography, large visual hierarchy.
+
+The visitor should immediately understand:
+  "RASA is a new economic system where human contribution creates value."
+
+
+DESIGN PHILOSOPHY
+-----------------
+The page follows Apple product storytelling principles:
+
+  1. CHAPTER STRUCTURE
+     Each section is a distinct "chapter" — a small label above a large
+     headline, followed by minimal supporting text. The visitor reads the
+     page as a story, not a feature list.
+
+  2. TYPOGRAPHIC HIERARCHY
+     Three levels:
+       - Eyebrow label: 11px, letter-spacing 0.45em, uppercase, lotus color
+       - Headline: clamp(2rem, vw, max), font-weight 100 (thin), tight tracking
+       - Body: 14-18px, font-weight 300 (light), gray (#86868B or #4a4a5a)
+
+     The headline-to-body ratio is intentionally extreme — the headline does
+     the storytelling, the body only elaborates for those who want more.
+
+  3. SILENCE AS DESIGN
+     White space (or in this case, black space) is a primary design element.
+     Section padding is py-28 on mobile, py-40 on desktop.
+     Breathing room between elements is generous.
+
+  4. LIGHT IN DARKNESS
+     The page uses a deep space black (#050508) as the canvas.
+     Soft radial gradient "orbs" provide ambient light:
+       - Purple glow (lotus: #C96BCF at ~10% opacity) — top of hero
+       - Blue glow (royal: #1E4FA1 at ~7% opacity) — hero right side
+       - Center glow in Future section
+     These create a cinematic, atmospheric quality without actual images.
+
+  5. ONE ACCENT COLOR
+     The lotus color (#C96BCF) is the sole accent — used for:
+       - Section eyebrow labels
+       - Primary CTA button
+       - Decorative rules in How It Works section
+       - Wallet card gradient
+     All other elements are white, gray, or dark.
+
+  6. SINGLE CALL TO ACTION
+     Every CTA is "Join RASA" or "Join the Movement" leading to /register.
+     There is no noise — one destination.
+
+
+COLOR PALETTE
+-------------
+Background (deep):   #050508  — hero, idea, wallet, CTA
+Background (raised): #070710  — problem, organizations sections
+Background (darkest):#030305  — future section (most dramatic)
+Background (mid):    #080810  — how it works section
+
+Text primary:        #F5F5F7  — Apple's near-white (not pure white, softer)
+Text secondary:      #86868B  — Apple's secondary gray
+Text tertiary:       #4a4a5a  — supporting copy, low contrast on purpose
+Text ghost:          #252530  — barely-visible elements (numbers, borders)
+
+Accent — Lotus:      #C96BCF  — primary brand accent
+Accent — Mint:       #5ED3A5  — secondary (wallet, how-it-works step 2)
+Accent — Royal:      #1E4FA1  — tertiary (wallet glow, how-it-works step 3)
+Accent — Sun:        #FFD60A  — used only in wallet memory tokens
+
+
+TYPOGRAPHY
+----------
+Font stack: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif
+  → Renders as SF Pro on Apple devices (iOS/macOS)
+  → Renders as Segoe UI on Windows
+  → Clean, modern, no web font loading delay
+
+Hero headline:      clamp(2.8rem, 6.5vw, 7.5rem), weight 100, tracking -0.025em
+Section headlines:  clamp(2rem, 4.5vw, 4.5rem), weight 100, tracking -0.02em
+Sub-headlines:      clamp(1.1rem, 2vw, 1.35rem), weight 300
+Body copy:          14-18px, weight 300
+Labels/eyebrows:    11px, weight 500, tracking 0.45em, uppercase
+Card numbers:       60px, weight 100 (purely decorative, very low opacity)
+
+
+USER JOURNEY
+------------
+1. Hero        — First impression. Understand RASA in 10 seconds.
+2. Problem     — "I understand why this exists."
+3. Idea        — "This is the solution I didn't know existed."
+4. How Works   — "I understand how to participate."
+5. Wallet      — "I understand what I earn."
+6. Organizations — "I understand who uses this."
+7. Future      — "I believe in the vision."
+8. CTA         — "I'm ready to join."
+
+Each section advances emotional commitment, not just information.
+The visitor who reaches the CTA has already decided — the button just confirms it.

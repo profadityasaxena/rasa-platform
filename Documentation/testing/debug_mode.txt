@@ -1,0 +1,84 @@
+RASA Platform — Debug Mode
+===========================
+
+ACTIVATION
+----------
+Set in .env:
+  DEBUG_MODE=true
+
+NEVER set this in production. The code enforces:
+  isDebugMode = DEBUG_MODE === "true" && NODE_ENV !== "production"
+
+Even if someone sets DEBUG_MODE=true in a production .env, it is
+overridden by NODE_ENV=production. This is enforced at lib/debug/guard.ts.
+
+
+WHAT DEBUG MODE ENABLES
+------------------------
+1. Auto-seeding on startup (instrumentation.ts + lib/debug/auto-seed.ts)
+   All 8 test accounts are created in MongoDB on first dev server start.
+   Subsequent starts check if accounts exist and skip if already seeded.
+
+2. Quick-login panel on /login page
+   Collapsible panel showing all 8 test accounts.
+   One-click login without entering credentials.
+   Rendered server-side — only shown when DEBUG_MODE=true at render time.
+
+3. /debug dashboard (admin only)
+   Shows DB connectivity, seed account status table, env summary.
+   POST /api/debug/seed button to re-run seeding on demand.
+
+4. /api/debug/* routes
+   All routes under /api/debug/ return 404 unless DEBUG_MODE=true.
+   Gated at auth.config.ts (authorized callback) + individual route handlers.
+
+
+ENVIRONMENT VARIABLES
+---------------------
+Required:
+  MONGODB_URI         — Main database (rasa_dev for dev, rasa_prod for prod)
+  NEXTAUTH_SECRET     — Session signing secret
+  DEBUG_MODE=true     — Activates debug features
+
+Optional (debug-specific):
+  MONGODB_URI_DEBUG   — Separate database for the seed script (rasa_debug)
+                        If set, npm run seed writes to this DB instead of MONGODB_URI.
+                        The running app always uses MONGODB_URI, not MONGODB_URI_DEBUG.
+
+
+STARTUP BEHAVIOR
+----------------
+When npm run dev starts with DEBUG_MODE=true:
+
+  1. instrumentation.ts register() function runs (Next.js server startup hook)
+  2. Calls autoSeedDebugAccounts() from lib/debug/auto-seed.ts
+  3. auto-seed connects to MONGODB_URI
+  4. Creates any missing accounts (idempotent — skips existing ones)
+  5. Logs: "[auto-seed] ✅ Created N debug account(s)" or "already present"
+
+This means dev environments always have test accounts without manual seeding.
+
+
+PRODUCTION SAFETY
+-----------------
+Guards prevent debug features from leaking into production:
+
+  lib/debug/guard.ts:
+    export const isDebugMode =
+      process.env.DEBUG_MODE === "true" && process.env.NODE_ENV !== "production"
+
+  auth.config.ts authorized():
+    if (DEBUG_PREFIXES.some(p => pathname.startsWith(p))) {
+      if (process.env.NODE_ENV === "production" || process.env.DEBUG_MODE !== "true") {
+        return false  // 404 in production
+      }
+    }
+
+  instrumentation.ts register():
+    if (process.env.DEBUG_MODE === "true" && process.env.NODE_ENV !== "production") {
+      // only seeds in dev
+    }
+
+  app/(auth)/login/page.tsx:
+    const debugMode = process.env.DEBUG_MODE === "true" && process.env.NODE_ENV !== "production"
+    // passed as prop to LoginForm — server-rendered, false in production

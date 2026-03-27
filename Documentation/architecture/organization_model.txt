@@ -1,0 +1,164 @@
+RASA Platform — Organization Model
+=====================================
+
+CORE PRINCIPLE
+--------------
+Organizations are the primary entity on the RASA platform.
+Individual users do not create organizations. Organizations are onboarded as
+independent entities. Users belong to organizations.
+
+This is the correct model:
+
+  WRONG:  Logged-in user → "Create Organization"
+  CORRECT: Organization submits onboarding request
+           Platform admin reviews and approves
+           Organization manages its own profile
+           Organization onboards internal team members
+
+
+ORGANIZATION TYPES
+------------------
+The platform supports the following first-class organization types:
+
+  ngo                 — NGO / Nonprofit
+  corporation         — Corporation / Business
+  government          — Government Body
+  university          — University / Educational Institution
+  marketplace_partner — Marketplace Partner / Seller
+
+All types are equal citizens in the data model. None is a "default" type.
+
+
+ORGANIZATION LIFECYCLE
+----------------------
+
+Step 1 — Public Request Submission
+  Any visitor submits an organization onboarding request at:
+    /register/organization
+  API endpoint (no auth required):
+    POST /api/organization-requests
+  This creates an OrganizationRequest record with status = "pending".
+  No user account or organization record is created at this step.
+
+Step 2 — Platform Admin Review
+  Platform admin reviews the request at the admin dashboard.
+  API endpoint (platform_* roles only):
+    GET  /api/organization-requests?status=pending
+    POST /api/organization-requests/[id]/review
+  Decision options: "approved" | "rejected"
+
+Step 3 — Organization Created (on Approval)
+  When a request is approved:
+    - An Organization record is created with status = "active"
+    - The request is updated with createdOrganizationId pointing to the new org
+    - The contact email receives notification (when email adapter is configured)
+  When rejected:
+    - The request is updated with status = "rejected" and review notes
+    - No organization record is created
+
+Step 4 — Organization Profile Completion
+  The organization's designated admin logs in and navigates to:
+    /organization  (Organisation Profile page)
+  They can complete and update:
+    - Name, description, mission/purpose statement
+    - Website, contact email, contact phone
+    - Headquarters location
+    - Focus areas and SDG alignment
+
+Step 5 — Team Onboarding
+  The organization admin invites internal users (team members).
+  Users join the organization in specific roles via OrganizationMembership.
+  This flow is managed by the organization, not by individual user self-service.
+
+
+DATA MODELS
+-----------
+
+Organization
+  organization_id     — Primary identifier
+  name                — Legal/operational name
+  type                — One of the 5 org types above
+  status              — pending_approval | active | suspended
+  description         — What the organization does
+  mission             — Mission/purpose statement
+  logoUrl             — Organization logo
+  website             — Public website
+  contactEmail        — Primary contact email
+  contactPhone        — Primary contact phone
+  headquarters        — { street, city, province, postalCode, country, lat, lng }
+  focusAreas          — Array of topic strings (e.g. "youth", "environment")
+  sdgAlignment        — Array of UN SDG goal strings (e.g. "SDG 4", "SDG 13")
+  verificationStatus  — unverified | verified | rejected
+  adminUserIds        — Array of user IDs with admin access
+  extractedData       — AI-extracted registration/legal data (from document vault)
+
+OrganizationRequest
+  request_id          — Primary identifier
+  organizationType    — One of the 5 org types
+  name                — Organization name
+  description         — Description
+  mission             — Mission statement
+  website             — Website URL
+  contactName         — Primary contact person name
+  contactEmail        — Primary contact email
+  contactPhone        — Primary contact phone (optional)
+  headquartersCity    — City
+  headquartersCountry — Country
+  purposeStatement    — Why they want to join RASA
+  status              — pending | approved | rejected
+  reviewedByUserId    — Platform admin who reviewed
+  reviewedAt          — Review timestamp
+  reviewNotes         — Admin review notes
+  createdOrganizationId — Set after approval, points to the created Organization
+
+OrganizationMembership
+  membership_id       — Primary identifier
+  organizationId      — Organization this membership belongs to
+  userId              — User who is a member
+  orgRole             — admin | manager | field_rep | operator | member
+  status              — active | invited | suspended
+  invitedByUserId     — Who invited this member
+  joinedAt            — When the member joined
+
+
+API ENDPOINTS
+-------------
+
+Public (no authentication required):
+  POST /api/organization-requests
+    Submit an organization onboarding request.
+    Body: SubmitOrgRequestInput (see validators.ts)
+
+Platform admin only (role must start with "platform_"):
+  GET  /api/organization-requests?status=pending|approved|rejected
+    List organization requests filtered by status.
+  POST /api/organization-requests/[id]/review
+    Approve or reject a request.
+    Body: { decision: "approved"|"rejected", reviewNotes?: string }
+
+Authenticated users (organization admin):
+  GET  /api/organizations
+    List organizations the current user administers.
+  GET  /api/organizations/[id]
+    Get a specific organization's full profile.
+  PATCH /api/organizations/[id]
+    Update organization profile fields.
+    Body: UpdateOrganizationInput (see validators.ts)
+
+
+FILES
+-----
+lib/db/models/organization.model.ts          — Organization Mongoose model
+lib/db/models/organization-request.model.ts  — OrganizationRequest model
+lib/db/models/organization-membership.model.ts — OrganizationMembership model
+modules/organization/types.ts                — TypeScript types and DTOs
+modules/organization/validators.ts           — Zod schemas
+modules/organization/repository.ts           — DB operations
+modules/organization/service.ts              — Business logic
+app/api/organizations/route.ts               — GET list
+app/api/organizations/[id]/route.ts          — GET/PATCH single
+app/api/organization-requests/route.ts       — POST submit, GET list
+app/api/organization-requests/[id]/review/route.ts — POST review
+app/(auth)/register/page.tsx                 — Registration landing (two paths)
+app/(auth)/register/organization/page.tsx    — Public org request form
+app/(dashboard)/organization/page.tsx        — Org profile management page

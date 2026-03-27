@@ -1,0 +1,92 @@
+RASA Platform — Organization Entity Rules
+==========================================
+
+CORE RULE: ORGANIZATIONS ARE PRIMARY ENTITIES
+----------------------------------------------
+An NGO is already an organization.
+A corporation is already an organization.
+A government body is already an organization.
+A university is already an organization.
+A marketplace partner is already an organization.
+
+Individual users do not first become organizational users and then create
+organizations. That model is WRONG and has been removed from this platform.
+
+CORRECT MODEL:
+  1. An organization submits its registration/onboarding request.
+  2. Once approved, the organization creates and manages its profile.
+  3. Then the organization onboards its internal users.
+
+WRONG MODEL (DO NOT IMPLEMENT):
+  User → log in → create organization
+
+
+ORGANIZATION TYPES (ALL EQUAL)
+--------------------------------
+  ngo                 NGO / Nonprofit
+  corporation         Corporation / Business
+  government          Government Body
+  university          University / Educational Institution
+  marketplace_partner Marketplace Partner / Seller
+
+None of these is a "special" or "legacy" type. All are treated identically
+by the data model and routing rules.
+
+
+ENROLLMENT RULES
+-----------------
+- Volunteers: self-register at /register (no org required)
+- Organizational users: their organization submits a request first
+- The register page MUST NOT offer ngo_admin, field_rep, or reward_partner
+  as self-selectable roles
+- These roles are assigned by the platform admin after org onboarding
+
+
+ENTITY RELATIONSHIPS
+---------------------
+
+  Organization
+    └── has many → OrganizationMembership → links to User
+    └── has many → Opportunity (missions)
+    └── has many → MarketplaceOffer
+    └── has one  → OrganizationProfile (stored inline on Organization doc)
+
+  OrganizationRequest (pre-approval queue)
+    └── on approval → creates Organization
+
+  User
+    └── belongs to → Organization via OrganizationMembership
+    └── has one    → Volunteer profile (if role = volunteer)
+    └── has one    → Wallet (all users)
+
+
+PROHIBITED IMPLEMENTATION PATTERNS
+------------------------------------
+The following patterns violate the organizational entity rules:
+
+  1. Any API endpoint that allows a logged-in user to create an Organization
+     without platform admin approval.
+     Exception: seed scripts and platform admin tooling.
+
+  2. Any UI that shows a "Create Organisation" button or link to a logged-in
+     ngo_admin, reward_partner, or field_rep user.
+
+  3. Any registration flow that allows self-assignment of ngo_admin,
+     field_rep, or reward_partner role.
+
+  4. Any data model or service that treats the Organization as owned by or
+     subordinate to a user (e.g. "user.createdOrganizations").
+
+
+HOW BACKWARD COMPATIBILITY IS MAINTAINED
+------------------------------------------
+The Organization model retains the adminUserIds array, which lists user IDs
+with admin access. This is used extensively in existing features (partner
+dashboard, marketplace seller identification, opportunity management).
+
+When an organization request is approved, the platform admin manually adds
+the contact's user ID to adminUserIds. This connects the org to its admin
+user in the existing permission model.
+
+The OrganizationMembership model is an additional layer that provides more
+granular membership tracking going forward, but does not replace adminUserIds.

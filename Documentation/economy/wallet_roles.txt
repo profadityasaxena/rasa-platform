@@ -1,0 +1,120 @@
+RASA Platform — Wallet Roles
+==============================
+
+OVERVIEW
+--------
+Every user on the RASA platform has a wallet. All wallets store fungible credits.
+However, the way credits enter a wallet depends entirely on the user's role.
+
+Credits are not earned equally. They are ROLE-SPECIFIC in their source.
+
+
+WALLET BEHAVIOR BY ROLE
+------------------------
+
+VOLUNTEER
+  Source of credits:
+    - Mission participation (verified check-in / check-out)
+    - Transfers received from other users
+
+  Credits represent:
+    Time contributed to society.
+    1 credit = 1 verified minute of community service.
+
+  How credits are used:
+    - Spend in the marketplace (redeem offers from reward partners)
+    - Transfer to other users (500/day cap)
+
+  Ledger types applicable:
+    mission_credit      — issued at mission check-out
+    transfer_received   — credits received from another user
+    transfer_sent       — credits sent to another user
+    marketplace_purchase — credits spent on a marketplace offer
+
+
+NGO ADMIN / NGO MANAGER
+  Source of credits:
+    - None from missions (they do not participate as volunteers)
+    - Transfers received (if another user sends them credits)
+    - Marketplace sales (if their org sells items in the marketplace)
+
+  NGOs do NOT earn credits by running missions.
+  NGOs do NOT receive credits when volunteers attend their missions.
+
+  Ledger types applicable:
+    transfer_received   — only if someone sends them credits
+    marketplace_sale    — only if their organisation sells in marketplace
+
+
+REWARD PARTNER / SELLER
+  Source of credits:
+    - Marketplace sales: when a volunteer redeems an offer from their organisation,
+      the seller's wallet receives the credits.
+
+  Workflow:
+    1. Partner creates an offer (price in credits)
+    2. Volunteer redeems the offer
+    3. Credits deducted from volunteer wallet (marketplace_purchase)
+    4. Credits added to seller/partner wallet (marketplace_sale)
+
+  Ledger types applicable:
+    marketplace_sale    — credits received from sales
+    transfer_sent       — if they transfer credits to another user
+    transfer_received   — if another user sends them credits
+
+
+PLATFORM ADMIN / MODERATOR / SUPPORT / ANALYST
+  Source of credits:
+    - Transfers received only (exceptional circumstances)
+    - No automatic credit issuance
+
+  These roles do not participate in the economy normally.
+
+
+FIELD REP
+  Source of credits:
+    - None (manages QR check-in/out, does not earn credits)
+    - May receive credits via transfer only
+
+
+WALLET TRANSACTION TYPE REFERENCE
+-----------------------------------
+
+  mission_credit       Volunteer earns credits from verified mission attendance
+                       ROLE ENFORCEMENT: Only issues to role=volunteer
+
+  marketplace_purchase Volunteer spends credits buying a marketplace offer
+
+  marketplace_sale     Seller/partner receives credits from a marketplace sale
+                       Triggered automatically when any user redeems an offer
+
+  transfer_sent        Any user sends credits to another user
+
+  transfer_received    Any user receives credits from another user
+
+  adjustment           Platform admin manual credit correction
+
+
+ENFORCEMENT IN CODE
+-------------------
+File: modules/ledger/service.ts — awardMissionCredits()
+
+  Before issuing any mission_credit, the function checks:
+
+    if (params.userRole !== "volunteer") {
+      // Log warning and return error — credits NOT issued
+    }
+
+  This check cannot be bypassed from the API layer because:
+  1. check-out API passes session.user.role from the JWT (server-side only)
+  2. The role in the JWT is signed and cannot be forged by the client
+  3. awardMissionCredits() rejects non-volunteers even if called internally
+
+
+CREDITS ARE NOT POINTS
+-----------------------
+Credits on RASA represent verified time contribution.
+They are NOT loyalty points, reward tokens, or arbitrary scores.
+
+A volunteer with 240 credits has contributed 4 verified hours to community work.
+This is the core value proposition of the RASA economy.

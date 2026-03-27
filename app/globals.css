@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+/* ============================================================
+   RASA Brand Color System
+   ============================================================ */
+
+:root {
+  /* Tier 1 — Brand Colors */
+  --color-lotus: #C96BCF;
+  --color-mint: #5ED3A5;
+  --color-royal: #1E4FA1;
+  --color-commitment: #D62828;
+  --color-sun: #FFD60A;
+
+  /* Support */
+  --background: #F7F9FC;
+  --foreground: #1F2937;
+  --color-surface: #FFFFFF;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-lotus: var(--color-lotus);
+  --color-mint: var(--color-mint);
+  --color-royal: var(--color-royal);
+  --color-commitment: var(--color-commitment);
+  --color-sun: var(--color-sun);
+  --color-surface: var(--color-surface);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* ── Landing page animations ─────────────────────────────────── */
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slow-pulse {
+  0%, 100% { opacity: 0.6; }
+  50%       { opacity: 1; }
+}

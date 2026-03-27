@@ -1,0 +1,93 @@
+RASA Platform — Organizational User Model
+==========================================
+
+OVERVIEW
+--------
+Users belong to organizations. Organizations are not created by users.
+
+The relationship is:
+
+  Organization → owns profile
+  Organization → has members (OrganizationMembership)
+  OrganizationMembership → links User to Organization with a role
+
+An organizational user is a user whose platform role (ngo_admin, field_rep,
+reward_partner) was granted in the context of their organization membership.
+
+
+HOW ORGANIZATIONAL USERS JOIN THE PLATFORM
+-------------------------------------------
+
+1. The organization is onboarded first (see organization_model.txt)
+2. After the organization is approved, the platform admin links existing user
+   accounts to the organization, or creates new accounts for the org team
+3. Organizational users log in and operate within their organization context
+4. They CANNOT self-register as ngo_admin or reward_partner directly —
+   those roles are assigned, not self-selected
+
+
+WHAT CHANGED FROM THE OLD MODEL
+---------------------------------
+BEFORE (incorrect):
+  - Register page offered "NGO Admin" and "Reward Partner" as self-selectable roles
+  - Logged-in users could create organizations from the dashboard
+  - Organizations were created as a subordinate action of a user
+
+AFTER (correct):
+  - Register page offers only "Volunteer" for individual self-registration
+  - Organizational roles (ngo_admin, reward_partner, field_rep) are assigned
+    through the organization onboarding and membership process
+  - The register page has a second path: "Submit Organisation Request" which
+    leads to a public form at /register/organization
+  - Organization creation is performed by the platform on approval of a request,
+    not by end users
+
+
+ORGANIZATIONAL ROLES (Platform-Level)
+--------------------------------------
+These are the roles stored on the User record (session.user.role):
+
+  ngo_admin          — Primary admin of an NGO organization
+  field_rep          — Field representative (manages QR, attendance)
+  reward_partner     — Admin of a marketplace partner organization
+
+These roles determine platform-level capabilities (what dashboards, APIs, and
+features the user can access).
+
+
+ORGANIZATION MEMBER ROLES (Org-Level)
+---------------------------------------
+Within an organization, members also have an org-level role
+(stored in OrganizationMembership.orgRole):
+
+  admin       — Full control over org profile and team
+  manager     — Can manage missions, applications, programs
+  field_rep   — Can generate and scan QR codes
+  operator    — Can manage marketplace offers
+  member      — Basic access to org resources
+
+The org-level role is separate from the platform-level role. A user with
+platform role "ngo_admin" will typically have org role "admin" in their org.
+
+
+TERMINOLOGY
+-----------
+Use the following terms consistently across the platform:
+
+  Volunteer          — Individual contributor (self-registered)
+  Organization       — Legal or structured entity
+  Organisation Profile — The public/operational identity of the organization
+  Team Member        — Internal organizational user
+  Invite Team Member — Action for adding users to org (NOT "create organization")
+  Complete Profile   — Action for filling in org details (NOT "create organization")
+
+
+PROHIBITED LANGUAGE
+--------------------
+Never use these in the UI for organizational users:
+
+  "Create Organization"    → Use "Complete Organisation Profile" or
+                              "Submit Organisation Request"
+  "New Organisation"       → Use "Invite Team Member" or "Manage Profile"
+  "Create your first org"  → Use "Your organisation request is pending" or
+                              "Contact your platform administrator"

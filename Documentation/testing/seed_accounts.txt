@@ -1,0 +1,113 @@
+RASA Platform — Seed Accounts
+==============================
+
+All seed accounts use the same password: Rasa1234!
+
+ACCOUNT LIST
+------------
+Email                   Role                 Credits  Description
+admin@rasa.dev          platform_admin       0        Full platform access, user management
+moderator@rasa.dev      platform_moderator   0        Content moderation, flagged items
+support@rasa.dev        platform_support     0        User support, account assistance
+analyst@rasa.dev        platform_analyst     0        Read-only analytics and reporting
+ngo@rasa.dev            ngo_admin            0        Create missions, review applications
+fieldrep@rasa.dev       field_rep            0        On-site QR check-in management
+volunteer@rasa.dev      volunteer            150      Completed profile, 150 credits
+partner@rasa.dev        reward_partner       0        Manages marketplace offers
+
+
+SOURCE OF TRUTH
+---------------
+lib/debug/seed-accounts.ts
+
+This file is the single source of truth for all test accounts.
+It is imported by:
+  - The seed script (scripts/seeders/seed.ts)
+  - The auto-seeder (lib/debug/auto-seed.ts)
+  - The login quick-login panel (app/(auth)/login/LoginForm.tsx)
+  - The debug dashboard (app/(dashboard)/debug/page.tsx)
+
+
+HOW TO ADD A NEW TEST ACCOUNT
+------------------------------
+1. Open lib/debug/seed-accounts.ts
+2. Add a new entry to the SEED_ACCOUNTS array:
+   {
+     email: "newrole@rasa.dev",
+     name: "New Role Name",
+     role: "the_role",          // must match UserRole enum in user.model.ts
+     password: SEED_PASSWORD,   // always use SEED_PASSWORD constant
+     description: "What this account is for",
+     walletBalance: 0,          // set > 0 if the role needs credits pre-loaded
+   }
+3. Restart the dev server — auto-seeder will create the new account
+   OR: run npm run seed to rebuild all seed data
+
+
+HOW ACCOUNTS ARE CREATED
+-------------------------
+Method 1 — Auto-seed (runs on startup):
+  - File: lib/debug/auto-seed.ts
+  - Triggered by: instrumentation.ts on server start when DEBUG_MODE=true
+  - Behavior: Creates only accounts that don't yet exist (idempotent)
+  - Database: MONGODB_URI (rasa_dev)
+  - Also creates volunteer profile for volunteer@rasa.dev
+
+Method 2 — Full seed script:
+  - File: scripts/seeders/seed.ts
+  - Command: npm run seed
+  - Behavior: Deletes existing seed accounts and recreates everything
+  - Creates: all 8 accounts + 2 organizations + 3 missions + 3 marketplace offers
+  - Database: MONGODB_URI_DEBUG if set, otherwise MONGODB_URI
+
+Method 3 — Debug panel:
+  - URL: /debug (as admin@rasa.dev)
+  - Button: "Re-run Seed"
+  - Calls: POST /api/debug/seed → runs autoSeedDebugAccounts()
+  - Same as Method 1 (idempotent)
+
+
+WHAT SEED ACCOUNTS INCLUDE
+---------------------------
+Each account has:
+  users collection:
+    _id          — MongoDB ObjectId
+    email        — account email
+    name         — display name
+    role         — UserRole
+    status       — "active"
+    emailVerified — current timestamp (bypasses email verification requirement)
+    createdAt/updatedAt — timestamps
+
+  passwords collection:
+    userId       — references users._id
+    hash         — bcrypt hash of SEED_PASSWORD (10 rounds for dev speed)
+
+  wallets collection:
+    userId       — references users._id
+    balance      — pre-loaded credits (150 for volunteer, 0 for others)
+
+  volunteer collection (volunteer@rasa.dev only):
+    userId, bio, skills, interests, location, availability,
+    languages, completenessScore=100, totalHours=12, totalCredits=150
+
+
+RESETTING SEED DATA
+-------------------
+To reset to a clean slate:
+  npm run seed
+
+This deletes all seed accounts (by email) and recreates them fresh.
+Non-seed accounts (any email not in SEED_ACCOUNTS) are NOT affected.
+
+
+UNDERSTANDING THE SESSION AFTER LOGIN
+--------------------------------------
+After logging in with a seed account:
+  session.user.id    → MongoDB ObjectId (from users._id)
+  session.user.email → account email
+  session.user.name  → account name
+  session.user.role  → account role (e.g., "platform_admin", "volunteer")
+
+The role is stored in the JWT (7-day expiry). If you change a user's role in the
+database, they must log out and back in for the new role to take effect.

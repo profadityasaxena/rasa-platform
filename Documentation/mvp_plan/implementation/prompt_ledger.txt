@@ -1,0 +1,331 @@
+RASA Platform — Prompt Ledger
+==============================
+Records significant design decisions made through prompts, so future developers
+understand the intent and reasoning behind architectural choices.
+
+────────────────────────────────────────────────────────────────────────────────
+PROMPT: SESSION 11 — Organization Entity Model & Onboarding Flow
+DATE:   2026-03-23
+────────────────────────────────────────────────────────────────────────────────
+
+ORIGINAL REQUEST SUMMARY
+-------------------------
+"Fix the organization onboarding and organizational account model across the RASA
+platform. The current behavior is incorrect because it asks an NGO user to
+'create an organization.' That is conceptually wrong. An NGO is already an
+organization. Organizations submit registration requests. Once approved, the
+organization manages its profile and onboards its internal users."
+
+CORE RULE MANDATED
+------------------
+Organizations are the primary entity on the RASA platform.
+Users belong to organizations. Organizations are never created by logged-in users.
+
+WRONG MODEL (removed):  User → logs in → creates organization
+CORRECT MODEL:          Organization submits request → admin approves →
+                        organization manages profile → org invites team members
+
+WHY THIS DECISION WAS MADE
+---------------------------
+The previous model treated organizations as user-owned objects. This is
+conceptually incorrect for any of the organization types on this platform:
+
+  - An NGO is a legal entity. It is not the property of a single user account.
+  - A corporation is a legal entity. Its presence on the platform precedes any
+    individual employee's account.
+  - A government body is a legal entity. No civil servant "creates" the ministry.
+  - A university is a legal entity. No admin creates it in a web form.
+
+The correct mental model: organizations are onboarded as organizations.
+Their internal users are team members, not owners.
+
+ORGANIZATION TYPES EXPANDED
+----------------------------
+  BEFORE: "ngo" | "reward_partner"  (only 2 types)
+  AFTER:  "ngo" | "corporation" | "government" | "university" | "marketplace_partner"
+
+All types are equal in the data model. Each type maps to a clear label
+(see ORG_TYPE_LABELS in modules/organization/types.ts).
+
+NEW MODELS ADDED
+----------------
+  OrganizationRequest     — public submission queue (pre-approval)
+    File: lib/db/models/organization-request.model.ts
+    Fields: organizationType, name, contactName, contactEmail, status, etc.
+    Lifecycle: pending → approved | rejected
+
+  OrganizationMembership  — user ↔ org relationship with internal role
+    File: lib/db/models/organization-membership.model.ts
+    Fields: organizationId, userId, orgRole (admin|manager|field_rep|operator|member)
+
+ORGANIZATION MODEL EXPANDED
+----------------------------
+  lib/db/models/organization.model.ts
+  ADDED: mission, contactEmail, contactPhone, headquarters (full address),
+         focusAreas, sdgAlignment, verificationStatus
+  CHANGED: OrgType now includes all 5 types
+  KEPT: adminUserIds (backward compat — existing marketplace/dashboard code uses this)
+
+REGISTRATION FLOW CHANGED
+--------------------------
+  app/(auth)/register/page.tsx
+  BEFORE: Single form with role dropdown (volunteer | ngo_admin | reward_partner)
+  AFTER:  Two-path choice screen
+    Path 1: "Register as Volunteer" → volunteer-only registration form (role hardcoded)
+    Path 2: "Submit Organisation Request" → /register/organization
+
+  The register page no longer offers ngo_admin, field_rep, or reward_partner
+  as self-selectable roles. These roles are assigned through the org onboarding process.
+
+NEW PUBLIC FORM
+---------------
+  app/(auth)/register/organization/page.tsx
+  Public form for organization onboarding requests.
+  No authentication required.
+  Submits to POST /api/organization-requests.
+  Fields: organizationType, name, description, mission, website,
+          contactName, contactEmail, contactPhone,
+          headquartersCity, headquartersCountry, purposeStatement
+
+NEW API ENDPOINTS
+-----------------
+  POST /api/organization-requests              — Public, submit org request
+  GET  /api/organization-requests              — Platform admin, list requests
+  POST /api/organization-requests/[id]/review  — Platform admin, approve/reject
+
+EXISTING API CHANGES
+--------------------
+  POST /api/organizations     — REMOVED (org creation now only happens on approval)
+  PATCH /api/organizations/[id] — Now calls updateOrgProfile() not updateOrg()
+  GET  /api/organizations      — Unchanged (returns orgs the user administers)
+
+ORGANIZATION SETTINGS PAGE CHANGED
+------------------------------------
+  app/(dashboard)/organization/page.tsx
+  BEFORE: "New Organisation" button, create form modal
+  AFTER:  Organisation Profile editor (for existing linked org)
+          "Submit Organisation Request" link (when no org is linked)
+          Sections: Basic Information, Contact Information, Team Members
+
+DASHBOARD LANGUAGE FIXED
+-------------------------
+  app/(dashboard)/dashboard/ngo/page.tsx
+  app/(dashboard)/dashboard/partner/page.tsx
+  BEFORE: "You have no organisations yet. Create one →"
+  AFTER:  "Your organisation is not yet linked to this account.
+           Contact your platform administrator, or submit an organisation request."
+
+  BEFORE: "Edit organisation →"
+  AFTER:  "Manage organisation profile →"
+  BEFORE: "Organisation settings"
+  AFTER:  "Organisation profile"
+
+PROHIBITED PATTERNS (documented)
+----------------------------------
+  - Any API that lets a logged-in user create an Organization without admin approval
+  - Any UI showing "Create Organisation" to ngo_admin/reward_partner/field_rep users
+  - Any registration flow that allows self-assignment of organizational roles
+
+DOCUMENTATION CREATED BY THIS PROMPT
+--------------------------------------
+  Documentation/architecture/organization_model.txt
+  Documentation/architecture/organizational_user_model.txt
+  Documentation/uiux/organization_onboarding_language.txt
+  Documentation/mvp_plan/organization_entity_rules.txt
+
+────────────────────────────────────────────────────────────────────────────────
+PROMPT: SESSION 10 — Role-Based Economic Rules
+DATE:   2026-03-23
+────────────────────────────────────────────────────────────────────────────────
+
+ORIGINAL REQUEST SUMMARY
+-------------------------
+"Clarify and enforce the economic rules of the RASA platform regarding who can
+earn credits and how wallets function for different user types. Only volunteers
+can earn credits through verified participation in missions. Other user types
+cannot earn credits through participation. However, they may still possess a
+wallet because they may sell goods or services in the marketplace."
+
+CORE RULE MANDATED
+------------------
+Only role="volunteer" may earn mission_credit type ledger entries.
+All other roles (ngo_admin, ngo_manager, field_rep, reward_partner, platform_*)
+are permanently blocked from receiving mission credits.
+
+Non-volunteers CAN hold wallets and receive credits via:
+  - Transfers (any user sending them credits)
+  - Marketplace sales (when a volunteer redeems their offer)
+
+WHY THIS DECISION WAS MADE
+---------------------------
+The credit economy represents verified time contribution to society.
+1 credit = 1 verified minute of community service.
+
+Allowing non-volunteers to earn mission credits would:
+  - Dilute the meaning of the credit (it would no longer represent service)
+  - Enable NGO admins or field reps to self-issue credits by attending missions
+  - Break the integrity of the volunteer economy
+
+Non-volunteers have separate credit sources appropriate to their role:
+  - Field reps: no credits (they operate the QR system, not participants)
+  - NGO admins: may receive marketplace sales if they sell in the marketplace
+  - Reward partners: receive credits when volunteers redeem their offers
+
+WHAT CHANGED
+------------
+  LEDGER SERVICE (modules/ledger/service.ts):
+    - NEW: awardMissionCredits() — enforces role === "volunteer" before issuing
+    - UPDATED: creditCredits() — accepts optional `type` param for marketplace_sale
+    - UPDATED: debitCredits() — type updated to include marketplace_purchase
+    - UPDATED: transferCredits() — uses transfer_sent / transfer_received types
+
+  LEDGER MODEL (lib/db/models/ledger.model.ts):
+    - NEW TYPES: mission_credit, marketplace_purchase, marketplace_sale,
+                 transfer_sent, transfer_received
+    - LEGACY ALIASES: credit_earned, transfer_out, transfer_in, redemption (kept for BC)
+
+  PARTICIPATION (modules/participation/service.ts, app/api/participation/check-out/route.ts):
+    - checkOut() now accepts userRole parameter
+    - Uses awardMissionCredits() instead of creditCredits()
+    - API route passes session.user.role to checkOut()
+
+  MARKETPLACE (modules/marketplace/service.ts):
+    - redeemOffer() now credits seller's wallet with marketplace_sale type
+    - Seller identified via offer.organizationId → org.adminUserIds[0]
+
+  APPLICATIONS (app/api/applications/route.ts):
+    - POST: blocks non-volunteers before entering mission pipeline (403)
+
+  DISCOVERY (app/(dashboard)/discovery/page.tsx):
+    - Apply button hidden for non-volunteers (isVolunteer check)
+
+  PARTNER DASHBOARD (app/(dashboard)/dashboard/partner/page.tsx):
+    - Shows salesRevenue (sum of marketplace_sale ledger entries)
+    - Shows walletBalance (from getBalance())
+    - Explains wallet source to user
+
+TWO-LAYER ENFORCEMENT
+---------------------
+Layer 1 — Application gate: POST /api/applications rejects non-volunteers (403)
+           This prevents non-volunteers from entering the mission pipeline.
+
+Layer 2 — Service gate: awardMissionCredits() rejects non-volunteers even if
+           called directly (returns error, no exception to client, warning logged)
+
+Neither layer can be bypassed without modifying server-side code.
+
+PROHIBITED PATTERNS (documented)
+---------------------------------
+  - Calling creditCredits() with type="mission_credit" outside ledger service
+  - Calling awardMissionCredits() with a hardcoded role="volunteer"
+  - Creating mission_credit ledger entries directly in the DB
+  - Any API endpoint that issues credits without role validation
+
+DOCUMENTATION CREATED BY THIS PROMPT
+--------------------------------------
+  Documentation/economy/wallet_roles.txt
+  Documentation/economy/credit_issuance_rules.txt
+
+────────────────────────────────────────────────────────────────────────────────
+PROMPT: SESSION 9 — Credit Formula Standardisation
+DATE:   2026-03-23
+────────────────────────────────────────────────────────────────────────────────
+
+ORIGINAL REQUEST SUMMARY
+-------------------------
+"Fix and standardize the way volunteer credits are calculated on the RASA platform.
+NGO managers must NOT manually decide the number of credits a volunteer receives.
+Instead, NGOs only specify the time required for participation. Credits must be
+calculated automatically by the platform using a uniform formula."
+
+FORMULA MANDATED
+-----------------
+credits = floor(duration_minutes)
+
+One credit per verified minute of participation. No NGO-set rate.
+
+WHY THIS DECISION WAS MADE
+---------------------------
+The previous system allowed NGOs to set creditsPerHour (range 1–100). This created:
+  - Unfair advantage for NGOs that could "pay" more credits to attract volunteers
+  - Risk of economy inflation/deflation from competing credit rates
+  - Risk of manipulation (favouring specific volunteers with higher rates)
+  - Inconsistent volunteer experience across different organisations
+
+The fix removes this field entirely and replaces it with a single platform constant:
+1 credit per minute, applied uniformly to all volunteers across all organisations.
+
+WHAT CHANGED
+------------
+  - REMOVED:  creditsPerHour from IOpportunity, DTO, validators, forms, UI
+  - ADDED:    estimatedDurationMinutes (NGO sets expected mission duration in minutes)
+  - CHANGED:  participation checkOut formula — was floor(hours) × creditsPerHour
+                                             — is now floor(actual_minutes)
+  - POOL:     totalCreditsPool = estimatedDurationMinutes × capacity (projection only)
+
+WHAT NGOs CAN CONTROL
+---------------------
+  volunteer_capacity         — max volunteers per mission
+  estimatedDurationMinutes   — expected work duration (for display + pool projection)
+
+WHAT NGOs CANNOT CONTROL
+------------------------
+  credit rate                — REMOVED entirely
+  credits per volunteer      — Platform-calculated at checkout
+  bonus credits              — Not supported
+
+ENFORCEMENT
+-----------
+  - No form field or API endpoint accepts credit values from NGO users
+  - Credits are issued only by checkOut() in modules/participation/service.ts
+  - checkOut() reads timestamps from MongoDB, not from request payloads
+  - QR tokens prevent self-reported attendance
+
+DOCUMENTATION CREATED BY THIS PROMPT
+--------------------------------------
+  Documentation/economy/credit_formula.txt
+  Documentation/economy/mission_credit_rules.txt
+
+────────────────────────────────────────────────────────────────────────────────
+PROMPT: SESSION 8 — Role Architecture + Location Model Fix
+DATE:   2026-03-23
+────────────────────────────────────────────────────────────────────────────────
+
+KEY DECISIONS
+-------------
+1. Role-based dashboards: Each role gets its own dashboard route (/dashboard/volunteer,
+   /dashboard/ngo, etc.) with live data specific to that role's responsibilities.
+   /dashboard root is now a redirect dispatcher.
+
+2. Location model: Users must never enter lat/lng manually. All location entry uses
+   structured address fields (street, city, province, postalCode, country). Geocoding
+   happens server-side via Google Maps API. Graceful fallback to 0,0 if no API key.
+
+RATIONALE FOR LOCATION CHANGE
+------------------------------
+Latitude/longitude are technical implementation details that have no place in a user
+interface. Expecting users to know coordinates creates friction and errors. The geocoding
+approach lets users enter natural human addresses and handles the coordinate resolution
+automatically. The matching algorithm still works (with degraded location scoring if
+geocoding is unavailable).
+
+────────────────────────────────────────────────────────────────────────────────
+PROMPT: SESSION 7 — Test Login Fix (Auth.js v5 Strategy Bug)
+DATE:   Pre-2026-03-23
+────────────────────────────────────────────────────────────────────────────────
+
+ROOT CAUSE
+----------
+Auth.js v5 Credentials provider ALWAYS issues a JWT cookie on login, regardless of
+session.strategy setting. Setting strategy="database" causes a silent infinite redirect
+loop (JWT cookie → DB lookup by JWT string → not found → null session → redirect).
+
+FIX
+---
+  session.strategy = "jwt"
+  jwt() callback: stores role and id into the JWT token
+  session() callback: reads from token (JWT mode), not user (database mode)
+
+This is now documented in memory: feedback_nextauth_credentials_jwt.md
+
+────────────────────────────────────────────────────────────────────────────────

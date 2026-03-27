@@ -1,0 +1,61 @@
+RASA Platform — Credit Formula
+================================
+
+FORMULA
+-------
+credits_awarded = floor(actual_minutes_worked)
+
+One credit is issued for each verified minute of participation.
+
+EXAMPLE
+-------
+  A volunteer checks in at 09:00 and checks out at 13:00.
+  actual_minutes = 240
+  credits_awarded = floor(240) = 240
+
+  A volunteer checks in at 09:00 and checks out at 12:47.
+  actual_minutes = 167
+  credits_awarded = floor(167) = 167
+
+ROUNDING RULE
+-------------
+Credits are calculated from actual minutes, not hours.
+floor() is applied to the raw minute count.
+
+This means a volunteer working 3 hours and 59 minutes receives 239 credits,
+not 240 credits. There is no rounding up. Every verified minute counts as
+exactly one credit.
+
+CREDITS PER HOUR (INFORMATIONAL)
+---------------------------------
+For display purposes:
+  Credits per hour = 60
+
+This value is never stored on a mission. It is a constant derived from the formula.
+It is shown in the UI to help volunteers understand earning potential.
+
+IMPLEMENTATION
+--------------
+File: modules/participation/service.ts — checkOut() function
+
+  const actualMinutes = Math.max(
+    0,
+    Math.floor((checkOutAt.getTime() - checkInAt.getTime()) / 60000)
+  )
+  const creditsAwarded = actualMinutes   // 1 credit per minute, no multiplier
+
+SOURCE OF TRUTH
+---------------
+check_in_time and check_out_time are recorded in the participations collection.
+Only QR-verified timestamps are used. Volunteers cannot self-report times.
+
+MISSION ESTIMATED DURATION
+---------------------------
+NGOs set estimatedDurationMinutes on each mission.
+This field is used for:
+  1. UI display: "This mission takes approximately X minutes"
+  2. Pre-calculating totalCreditsPool = estimatedDurationMinutes × capacity
+  3. Showing volunteers how many credits they can expect to earn
+
+Actual credits are calculated from real attendance, not from estimatedDurationMinutes.
+The estimate only affects the totalCreditsPool projection, not what volunteers receive.

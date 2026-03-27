@@ -1,0 +1,118 @@
+RASA Landing Page — Component Hierarchy
+========================================
+
+FILE STRUCTURE
+--------------
+app/
+  (public)/
+    layout.tsx          — Minimal wrapper, sets overflow-x-hidden
+    page.tsx            — Root page, composes all 8 sections + metadata
+
+components/
+  landing/
+    FadeIn.tsx          — Client component: IntersectionObserver fade-in wrapper
+    NavBar.tsx          — Server: top navigation (logo, links, Sign In, Join RASA)
+    HeroSection.tsx     — Server: full-viewport hero with ambient glows
+    ProblemSection.tsx  — Server: 3-card problem grid
+    IdeaSection.tsx     — Server: idea statement + contribution type pills
+    HowItWorksSection.tsx — Server: 3-pillar numbered steps
+    WalletSection.tsx   — Server: 2-col text + CSS wallet card mockup
+    OrganizationsSection.tsx — Server: 4-step org process grid
+    FutureSection.tsx   — Server: cinematic vision statement
+    CTASection.tsx      — Server: final CTA + footer
+
+
+COMPONENT DETAILS
+-----------------
+
+FadeIn.tsx (CLIENT)
+  Props: children, delay (ms, default 0), className
+  Behavior: starts opacity-0 translate-y-6, transitions to opacity-100 translate-y-0
+            when element enters viewport (threshold 0.1, rootMargin -50px bottom)
+  Used by: all sections except HeroSection (hero uses CSS animations instead)
+
+NavBar.tsx (SERVER)
+  Layout: absolute positioned over hero, z-50
+  Left:   RASA logo link
+  Center: "How It Works" | "For Organizations" anchor links (hidden on mobile)
+  Right:  "Sign In" text link | "Join RASA" pill button
+  Style:  transparent background, blends into hero
+
+HeroSection.tsx (SERVER)
+  Structure:
+    - <section> min-h-screen flex-col relative bg-[#050508]
+    - Ambient div: 2 radial gradient orbs (purple top, blue right)
+    - <NavBar /> absolute at top
+    - Content div: flex-1 centered vertically, text-center
+      - Eyebrow label (fade-in-up CSS anim, 0.1s delay)
+      - h1 headline (fade-in-up CSS anim, 0.2s delay)
+      - Sub-headline paragraph (0.35s delay)
+      - Supporting copy (0.45s delay)
+      - CTA buttons row (0.55s delay)
+    - Scroll cue: thin vertical line at bottom center (1.2s delay)
+  Animation: pure CSS @keyframes (no hydration required, works immediately)
+
+ProblemSection.tsx (SERVER)
+  Structure:
+    - Section header with FadeIn (label + headline)
+    - Grid: 1 col mobile, 3 col desktop
+    - 3 cards: large ghost number, title, body text
+    - Border dividers: bottom on mobile, right on desktop
+    - Hover: subtle bg darkening
+
+IdeaSection.tsx (SERVER)
+  Structure:
+    - Centered layout
+    - Section header with FadeIn
+    - FadeIn (delay 200ms): flex-wrap pill cloud
+    - 10 contribution type pills with hover state
+
+HowItWorksSection.tsx (SERVER)
+  Structure:
+    - Section header with FadeIn
+    - Grid: 1 col mobile, 3 col desktop
+    - 3 pillars: colored badge (01/02/03), title, body, accent rule
+    - Each pillar in its own FadeIn with staggered delay (0, 140ms, 280ms)
+    - Colors: lotus (#C96BCF), mint (#5ED3A5), royal (#1E4FA1)
+
+WalletSection.tsx (SERVER)
+  Structure:
+    - 2-col grid: text left, wallet card right (stacks on mobile)
+    - Left: label, headline, 2 feature bullets with colored vertical rules
+    - Right: CSS wallet card mockup with glow behind it
+    - Wallet card:
+        - Glass-morphism style (subtle gradient bg, semi-transparent border)
+        - Header: "RASA Wallet" label + circular icon
+        - Credits: large thin number "1,240"
+        - Memories: 6 small colored square tokens (◆ symbol)
+
+OrganizationsSection.tsx (SERVER)
+  Structure:
+    - Section header with FadeIn
+    - Grid: 1 col mobile, 2 col tablet, 4 col desktop
+    - 4 process steps: numbered, titled, described
+    - Border dividers between steps
+
+FutureSection.tsx (SERVER)
+  Structure:
+    - Darkest background (#030305)
+    - Large centered ambient glow (slow-pulse animation)
+    - Centered text block: label, large headline, 2 body paragraphs
+    - Second paragraph uses ghost-level color (#252530) — almost invisible,
+      rewarding closer reading
+
+CTASection.tsx (SERVER)
+  Structure:
+    - Radial gradient from bottom (subtle upward bloom of lotus color)
+    - Centered: label, headline, supporting copy, 2 CTA buttons
+    - Primary button: lotus fill with glow shadow
+    - Secondary button: outline, links to /discovery
+    - Footer: border-top, 3-col (logo / copyright / links)
+
+
+RESPONSIVE BREAKPOINTS
+-----------------------
+Mobile  (<640px):  Single column, reduced padding (py-28), full-width text
+Tablet  (≥640px):  2-column where applicable (organizations grid)
+Desktop (≥768px):  Nav links visible, larger typography
+Large   (≥1024px): 2-col wallet section, max-width containers

@@ -1,0 +1,112 @@
+RASA Platform — Organisation Onboarding Language Guide
+======================================================
+
+PURPOSE
+-------
+This guide defines the correct terminology for all organization-related UI
+across the RASA platform. Incorrect language was previously in use — this
+document defines the corrected terms and where to apply them.
+
+
+RULE
+----
+Organizations are primary entities. They are not created by users.
+Language must reflect this: organizations join the platform, complete their
+profiles, and onboard their teams.
+
+
+CORRECT LANGUAGE BY CONTEXT
+-----------------------------
+
+REGISTRATION / ONBOARDING
+  Old (wrong):  "Create Organization" / "Register as NGO"
+  New (correct): "Submit Organisation Request"
+                 "Organisation Registration"
+                 "Apply for platform access"
+
+  UI location: /register → two-path choice card
+  Form location: /register/organization
+
+---
+
+AFTER APPROVAL — PROFILE COMPLETION
+  Old (wrong):  "Create your organisation"
+  New (correct): "Complete Organisation Profile"
+                 "Manage Organisation Profile"
+                 "Organisation Profile"
+
+  UI location: /organization (dashboard page)
+
+---
+
+TEAM MANAGEMENT
+  Old (wrong):  "Create Organisation" (for adding people)
+  New (correct): "Invite Team Member"
+                 "Manage Team"
+                 "Team Members"
+
+  UI location: /organization → Team Members section
+
+---
+
+ORGANISATION SETTINGS / NAVIGATION
+  Old (wrong):  "Organisation Settings" (implies creating)
+  New (correct): "Organisation Profile"
+                 "Organisation Settings" (only when editing existing settings)
+
+  UI location: Sidebar nav item
+
+---
+
+WHEN NO ORGANISATION IS LINKED (dashboard warning)
+  Old (wrong):  "You have no organisations yet. Create your first organisation."
+  New (correct): "Your organisation is not yet linked to this account.
+                  Contact your platform administrator, or submit an
+                  organisation request if your organisation is not yet registered."
+
+  UI location: /dashboard/ngo, /dashboard/partner
+
+
+NGO-SPECIFIC LANGUAGE
+---------------------
+  "Create Mission"            ← CORRECT (missions are created by orgs)
+  "Review Applicants"         ← CORRECT
+  "Complete NGO Profile"      ← CORRECT
+  "Invite NGO Team Members"   ← CORRECT
+  "Manage NGO Team"           ← CORRECT
+  "Create Organisation"       ← WRONG
+
+
+CORPORATION-SPECIFIC LANGUAGE
+------------------------------
+  "Complete Company Profile"  ← CORRECT
+  "Invite Team Members"       ← CORRECT
+  "Manage Marketplace Team"   ← CORRECT
+  "Launch Sustainability Campaign" ← CORRECT
+  "Create Organisation"       ← WRONG
+
+
+GOVERNMENT-SPECIFIC LANGUAGE
+-----------------------------
+  "Complete Agency Profile"   ← CORRECT
+  "Invite Department Members" ← CORRECT
+  "Publish Public Missions"   ← CORRECT
+  "Create Organisation"       ← WRONG
+
+
+UNIVERSITY-SPECIFIC LANGUAGE
+-----------------------------
+  "Complete Institution Profile" ← CORRECT
+  "Invite Staff"              ← CORRECT
+  "Manage Programs"           ← CORRECT
+  "Create Organisation"       ← WRONG
+
+
+GLOBAL TERMINOLOGY REFERENCE
+------------------------------
+  Volunteer          — Individual contributor
+  Organization       — Legal or structured entity (never "user-created")
+  Organisation Profile — The operational identity of the organization
+  Team Member        — Internal organizational user
+  Invite Team Member — Adding users to the organization
+  Complete Profile   — Filling in org details post-approval

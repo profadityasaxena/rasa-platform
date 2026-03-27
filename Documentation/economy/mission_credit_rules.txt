@@ -1,0 +1,104 @@
+RASA Platform — Mission Credit Rules
+======================================
+
+CORE RULE
+---------
+Credits are platform-controlled. NGOs cannot set, adjust, or override credit values.
+Credits are calculated exclusively from verified participation time.
+
+WHY CREDITS ARE PLATFORM-CONTROLLED
+-------------------------------------
+1. FAIRNESS
+   If NGOs could set their own credit rates, a well-funded or more popular organisation
+   could attract more volunteers by offering higher credits, creating an unfair marketplace.
+   Poorer NGOs or less prominent causes would be deprioritised, defeating RASA's mission.
+
+2. ECONOMY STABILITY
+   An NGO-controlled credit rate would destabilise the credit economy. Competing rates
+   would cause credit inflation, devalue marketplace offers, and erode volunteer trust
+   in the platform.
+
+3. MANIPULATION PREVENTION
+   NGOs must not be able to reward preferred volunteers with extra credits, penalise
+   volunteers by under-crediting, or use credits as a carrot to influence volunteer
+   behaviour in ways that benefit the NGO rather than the volunteer.
+
+4. CONSISTENCY
+   The RASA economy works because every volunteer in every mission is subject to the
+   same earning formula. One minute = one credit. Always. Everywhere.
+
+WHAT NGOS CAN SET
+-----------------
+  volunteer_capacity          — How many volunteers can participate
+  estimatedDurationMinutes    — Expected work duration per volunteer
+
+WHAT NGOS CANNOT SET
+--------------------
+  credit rate                 — REMOVED. Never shown to NGOs in any form.
+  credit per hour             — REMOVED. This was the manipulable field.
+  credits for a specific volunteer — Platform-calculated only.
+  bonus credits               — Not supported. All credits come from time worked.
+
+TIME-BASED MODEL
+----------------
+NGOs specify how long a mission is expected to take. This is used for:
+  - Displaying expected credits to volunteers in the discovery feed
+  - Pre-calculating the totalCreditsPool for the mission
+
+Example:
+  Mission: After-School Tutoring
+  Estimated Duration: 180 minutes
+  Capacity: 10 volunteers
+
+  Expected pool: 180 × 10 = 1,800 credits total
+  Each volunteer: up to 180 credits if they attend the full session
+
+Actual credits are calculated from real check-in/check-out timestamps.
+
+CREDIT ISSUANCE WORKFLOW
+------------------------
+1. Volunteer arrives at mission site
+2. Field Rep generates a QR check-in code (POST /api/participation/qr?type=check_in)
+3. Volunteer scans the QR code (POST /api/participation/check-in)
+   → System records check_in_time (UTC timestamp)
+4. At end of mission, Field Rep generates a check-out QR code
+5. Volunteer scans the check-out QR (POST /api/participation/check-out)
+   → System calculates: actual_minutes = floor((check_out_time - check_in_time) / 60000)
+   → credits_awarded = actual_minutes
+   → Wallet is credited
+   → Ledger entry created (type: "credit_earned", referenceType: "Participation")
+   → volunteer.totalCredits and totalHours are updated
+
+WALLET TRANSACTION EXAMPLE
+---------------------------
+  type:        credit_earned
+  amount:      +180
+  description: Credits earned from mission: After-School Tutoring Programme
+  reference:   Participation._id
+
+VALIDATION RULES (enforced in code)
+-------------------------------------
+  - credits_awarded is always computed server-side; never accepted from client input
+  - No API endpoint accepts a "credits" parameter from the user
+  - checkOut() in modules/participation/service.ts is the only function that issues
+    mission credits; it reads timestamps from the database, not from the request
+  - QR tokens expire after 10 minutes (TTL index on qr_tokens collection)
+  - Each QR token can only be used once (usedAt is set on use; re-use returns error)
+
+TOTALCREDITSPOOL
+----------------
+A pre-calculated field on each mission:
+
+  totalCreditsPool = estimatedDurationMinutes × capacity
+
+This is a projection for planning purposes only. It does not cap or guarantee
+the actual credits issued. If all volunteers attend the full session, the actual
+credits issued will equal (or be close to) this number.
+
+PROHIBITED PATTERNS
+--------------------
+Any of the following must be treated as a bug or security issue:
+  - An API route that sets credits based on NGO-provided input
+  - A form field that allows credit rates to be entered by any non-platform user
+  - Any bypass of the checkOut() function for credit issuance
+  - Manually inserting credit_earned ledger entries outside the checkout flow

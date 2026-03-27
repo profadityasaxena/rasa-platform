@@ -1,0 +1,128 @@
+RASA Platform — Credit Issuance Rules
+=======================================
+
+CORE RULE
+---------
+Only volunteers can earn credits through mission participation.
+No other role receives credits from mission attendance.
+This rule is enforced at both the API level and the service layer.
+
+
+WHO CAN EARN CREDITS
+---------------------
+
+ALLOWED:
+  role = "volunteer"    → mission_credit (at verified check-out)
+
+BLOCKED:
+  role = "ngo_admin"    → mission_credit blocked
+  role = "ngo_manager"  → mission_credit blocked
+  role = "field_rep"    → mission_credit blocked
+  role = "reward_partner" → mission_credit blocked
+  role = "platform_*"  → mission_credit blocked
+
+Non-volunteers CAN still hold credits (via transfers or marketplace sales),
+but they may not earn credits through mission participation.
+
+
+WHO CAN APPLY TO MISSIONS
+--------------------------
+Only role = "volunteer" may submit applications.
+
+Enforcement:
+  POST /api/applications checks session.user.role before processing.
+  Returns 403 if role !== "volunteer".
+
+This means non-volunteers cannot accidentally or deliberately enter the
+mission participation pipeline, which would otherwise lead to attempted
+credit issuance at checkout.
+
+
+CREDIT ISSUANCE LIFECYCLE
+---------------------------
+Credits flow through a strict pipeline. Each step enforces rules.
+
+Step 1 — Application (volunteer only)
+  POST /api/applications
+  ✓ Checks: role === "volunteer"
+  ✓ Checks: volunteer profile completeness === 100%
+  ✓ Checks: no duplicate application
+  → Creates application with status=pending
+
+Step 2 — Acceptance (NGO Admin)
+  POST /api/applications/[id]/review
+  → Status set to: accepted | rejected
+
+Step 3 — Check-in (QR scan, volunteer only)
+  POST /api/participation/check-in
+  ✓ Validates QR token (10-minute TTL, single-use)
+  ✓ Requires accepted application for this mission
+  → Records check_in_time (server timestamp, cannot be forged)
+
+Step 4 — Check-out (QR scan, volunteer only)
+  POST /api/participation/check-out
+  ✓ Validates QR token (separate check-out token)
+  ✓ Requires active check-in for this mission
+  → Records check_out_time (server timestamp)
+  → Calculates: actual_minutes = floor((check_out - check_in) / 60000)
+  → Calls: awardMissionCredits(userId, userRole, actualMinutes)
+
+Step 5 — Credit issuance (service layer, role-enforced)
+  awardMissionCredits() in modules/ledger/service.ts
+  ✓ Checks: userRole === "volunteer"
+  → If check passes: credits = actual_minutes, ledger entry type = mission_credit
+  → If check fails: error logged, no credits issued, no exception thrown to client
+
+
+WHAT TRIGGERS CREDIT ISSUANCE
+-------------------------------
+ONLY this chain:
+  QR check-out scan → check-out API → participation service → awardMissionCredits
+
+NOTHING ELSE issues mission_credit type ledger entries.
+There is no admin panel to manually issue mission credits.
+There is no bulk credit issuance endpoint.
+There is no script that bypasses awardMissionCredits.
+
+
+WHAT NEVER TRIGGERS CREDIT ISSUANCE
+-------------------------------------
+  - Applying to a mission (only creates an application record)
+  - Being accepted for a mission (only updates application status)
+  - Checking in to a mission (only records start time)
+  - An NGO publishing a mission (no credits to anyone)
+  - An NGO reviewing applications (no credits)
+  - A field rep generating QR codes (no credits)
+
+
+NON-VOLUNTEER WALLET SOURCES (PERMITTED)
+-----------------------------------------
+Non-volunteers can still receive credits through:
+  1. TRANSFERS     — Any user can send credits to any other user
+  2. MARKETPLACE   — When a volunteer redeems a partner's offer, the partner receives
+                     credits (ledger type: marketplace_sale)
+
+These flows do NOT use awardMissionCredits and are not subject to the volunteer-only check.
+
+
+MARKETPLACE CREDIT FLOW
+------------------------
+When a volunteer redeems an offer:
+
+  1. Volunteer wallet: -creditCost (type: marketplace_purchase)
+  2. Seller/partner wallet: +creditCost (type: marketplace_sale)
+
+Both entries are created in the same redeemOffer() call.
+The seller's wallet is credited regardless of the seller's role.
+
+Implementation: modules/marketplace/service.ts — redeemOffer()
+
+
+PROHIBITED ACTIONS
+------------------
+Any of the following is a violation of this rule:
+  - Calling creditCredits() with type="mission_credit" from outside ledger service
+  - Calling awardMissionCredits() without passing the real userRole
+  - Hardcoding role="volunteer" to bypass the check
+  - Creating a ledger entry of type mission_credit manually in the DB
+  - Creating an API endpoint that issues credits without role validation

@@ -1,0 +1,130 @@
+RASA Landing Page — Interactions & Animations
+==============================================
+
+ANIMATION PHILOSOPHY
+--------------------
+"Animations should feel inevitable, not impressive."
+— Inspired by Apple's motion design guidelines
+
+Rules:
+  1. Every animation either directs attention or confirms action
+  2. No animation is decorative noise
+  3. Duration: 600-800ms maximum (short enough to feel snappy)
+  4. Easing: ease-out (starts fast, ends slow — feels natural)
+  5. Nothing loops visually except ambient background effects
+
+
+HERO ANIMATIONS (CSS — no JS, instant render)
+-----------------------------------------------
+All hero content uses CSS keyframes defined in globals.css:
+
+  @keyframes fade-in-up
+    from: opacity 0, translateY 18px
+    to:   opacity 1, translateY 0
+
+  @keyframes fade-in
+    from: opacity 0
+    to:   opacity 1
+
+Sequence (staggered via animation-delay):
+  0.1s — Eyebrow label appears
+  0.2s — Headline appears
+  0.35s — Sub-headline appears
+  0.45s — Supporting copy appears
+  0.55s — CTA buttons appear
+  1.2s  — Scroll cue line fades in
+
+Result: Page content "blooms" upward sequentially. First thing visible is
+the label, then the massive headline. The eye is guided naturally.
+
+Duration: 0.8s ease-out for main content, 1s for scroll cue.
+Fill mode: "both" (starts at from-state before delay, ends at to-state).
+
+
+BACKGROUND AMBIENT EFFECTS (CSS infinite loop)
+------------------------------------------------
+Ambient glow orbs use @keyframes slow-pulse (8-10s cycle):
+  - Hero: purple top glow pulses between 0.6 and 1.0 opacity
+  - Future section: center glow pulses between 0.6 and 1.0 opacity
+
+These are extremely subtle (radial gradients at 5-11% opacity).
+The pulsing is imperceptible on first glance — adds life on close inspection.
+
+
+SCROLL ANIMATIONS (IntersectionObserver — FadeIn component)
+-----------------------------------------------------------
+All sections below the fold use the FadeIn client component.
+Trigger: element enters viewport with 50px bottom offset (rootMargin: -50px)
+Effect: opacity 0→1, translateY 24px→0, 700ms ease-out
+
+Staggered delays within sections:
+  ProblemSection cards:      0ms, 120ms, 240ms
+  IdeaSection pills:         200ms (as a group)
+  HowItWorksSection pillars: 0ms, 140ms, 280ms
+  OrganizationsSection steps: 0ms, 100ms, 200ms, 300ms
+
+These create a left-to-right ripple effect on grid sections —
+items appear in sequence rather than all at once.
+
+
+HOVER STATES
+------------
+Buttons — Primary (lotus fill):
+  background:  #C96BCF → #d47fda (lighter)
+  transform:   none → scale(0.97) on active/click
+  transition:  200ms
+
+Buttons — Secondary (outline):
+  border-color: #252530 → #38384a
+  background:   transparent → rgba(255,255,255,0.03)
+  transition:   200ms
+
+Buttons — Nav "Join RASA":
+  background: rgba(255,255,255,0.07) → rgba(255,255,255,0.12)
+  transition: 200ms
+
+Contribution pills (IdeaSection):
+  border-color: #18181f → rgba(201,107,207,0.3)
+  text-color:   #3a3a4a → #86868B
+  transition:   300ms (slightly slower for a gentle feel)
+
+Problem/Organizations cards:
+  background: section-color → slightly lighter variant
+  transition: 300ms
+
+
+SCROLL BEHAVIOR
+---------------
+Anchor links ("How It Works", "For Organizations") scroll to section ids:
+  #how-it-works       → HowItWorksSection
+  #organizations      → OrganizationsSection
+
+Native browser smooth-scroll is used (no JS scroll library).
+To enable this, add `scroll-behavior: smooth` to the html element if needed.
+
+
+WHAT IS DELIBERATELY ABSENT
+----------------------------
+The following were considered and rejected:
+
+  ✗ Parallax scrolling        — causes janky performance on mobile
+  ✗ Text typing effects       — distracting, slows message comprehension
+  ✗ Number counters           — marketing cliché
+  ✗ Page transition effects   — adds complexity, breaks back-navigation feel
+  ✗ Video backgrounds         — heavy, inaccessible, distracting
+  ✗ Lottie/SVG animations     — not needed, adds bundle weight
+  ✗ Scroll-triggered counters — marketing noise
+  ✗ Toast notifications       — intrusive on a landing page
+  ✗ Chat widgets              — contradicts minimalist philosophy
+
+
+ACCESSIBILITY NOTES
+-------------------
+  - All decorative elements: aria-hidden="true"
+  - Ambient glow divs: aria-hidden="true"
+  - Memory token buttons: aria-label with the mission name
+  - Color contrast: primary text (#F5F5F7 on #050508) ≈ 19:1 — exceeds WCAG AAA
+  - Secondary text (#86868B on #050508) ≈ 5.8:1 — passes WCAG AA
+  - Animations respect prefers-reduced-motion (IntersectionObserver still fires
+    but transition is suppressed by the browser if user has set reduce motion)
+  - All interactive elements are keyboard-navigable (standard HTML links)

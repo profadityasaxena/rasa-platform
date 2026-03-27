@@ -1,0 +1,99 @@
+RASA Platform — Test Login System
+====================================
+
+OVERVIEW
+--------
+When DEBUG_MODE=true (and NODE_ENV !== production), the login page displays a
+collapsible "Test Accounts" panel. Clicking any account immediately signs the
+user in without typing credentials — a one-click login for all 8 system roles.
+
+
+HOW TEST LOGIN WORKS
+--------------------
+1. User visits /login
+2. "Test Accounts (debug mode)" panel is visible at the bottom of the form
+3. Clicking a row calls signIn("credentials", { email, password: SEED_PASSWORD })
+4. NextAuth verifies the credentials against MongoDB
+5. A JWT session is issued (encrypted cookie: authjs.session-token)
+6. User is redirected to /dashboard
+7. Session persists on refresh (JWT expiry: 7 days)
+
+The quick-login uses the same credentials provider as manual login. There is no
+special bypass — test accounts are real accounts with real bcrypt-hashed passwords.
+
+
+SESSION MECHANISM
+-----------------
+Auth strategy: JWT (session.strategy = "jwt" in auth.ts)
+
+Why JWT (not database):
+  The Auth.js v5 Credentials provider ALWAYS issues a JWT cookie, regardless of
+  the configured strategy. If strategy="database" is set:
+    - Login: JWT cookie is issued → success
+    - Session read: DB looks up JWT as session token → not found → null session
+    - Dashboard: session null → redirect to /login → infinite loop
+
+  Therefore strategy="jwt" must be used so the session is read from the JWT cookie
+  directly, without a database lookup.
+
+JWT claims stored per-session:
+  - sub   (user ID from MongoDB ObjectId)
+  - email
+  - name
+  - picture
+  - id    (same as sub, explicitly set in jwt callback)
+  - role  (volunteer | ngo_admin | field_rep | reward_partner | platform_* )
+
+Session object (available in server components via auth()):
+  session.user.id    → MongoDB ObjectId string
+  session.user.role  → UserRole string
+  session.user.email → user email
+  session.user.name  → display name
+
+
+JWT CALLBACK (auth.ts)
+----------------------
+The jwt() callback runs on every sign-in and on every request that reads the session.
+On sign-in (user is available), it persists role and id into the JWT:
+
+  async jwt({ token, user }) {
+    if (user) {
+      token.id   = user.id
+      token.role = user.role
+    }
+    return token
+  }
+
+Without this callback, role would be lost after sign-in and every session would
+show role=undefined.
+
+
+SESSION CALLBACK (auth.ts)
+--------------------------
+The session() callback runs on every request that reads the session.
+With JWT strategy, it reads id and role from the token (not from a DB user):
+
+  async session({ session, token }) {
+    if (session.user && token) {
+      session.user.id   = token.id
+      session.user.role = token.role ?? "volunteer"
+    }
+    return session
+  }
+
+
+DEBUGGING LOGIN ISSUES
+-----------------------
+If login appears to work but dashboard redirects back to /login:
+  1. Check auth.ts: session.strategy must be "jwt" (not "database")
+  2. Check jwt callback: role and id must be set into token
+  3. Check session callback: must read from token, not user
+
+If quick-login shows "Quick login failed for ...":
+  1. Confirm DEBUG_MODE=true in .env
+  2. Confirm seed accounts exist: npm run seed OR restart dev server
+  3. Check MongoDB connectivity: visit /debug page (as admin@rasa.dev)
+
+If session cookie not set after login:
+  1. Confirm NEXTAUTH_SECRET is set in .env
+  2. Confirm NEXTAUTH_URL=http://localhost:3000

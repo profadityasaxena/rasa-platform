@@ -1,0 +1,400 @@
+RASA Platform — Implementation Log
+====================================
+
+SESSION 1 (PROMPT 001)
+  - Confirmed tech stack, architecture decisions
+  - Created planning documents 00–14 + prompt.txt
+
+SESSION 2 (PROMPT 002–003)
+  - Resolved all open questions
+  - Confirmed matching algorithm, auth approach, admin roles
+  - Updated all planning documents
+
+SESSION 3 (PROMPT 004)
+  - Scaffolded Next.js 16.2.1 project at Implementation/rasa-platform
+  - Installed all dependencies (see package.json)
+  - Built core infrastructure:
+    * lib/db/mongodb.ts       — lazy MongoClient singleton (for NextAuth adapter)
+    * lib/db/mongoose.ts      — lazy Mongoose connection (for business logic)
+    * lib/debug/guard.ts      — debug mode guard (production-safe)
+    * auth.ts                 — NextAuth v5 with Google, Microsoft, Credentials
+    * middleware.ts            — route protection
+    * modules/identity/       — register, login, verify credentials
+    * app/globals.css         — Tailwind v4 + RASA brand colors
+
+SESSION 4 (PROMPT 005) — Current session
+  - Completed full MVP build — BUILD PASSES (0 TypeScript errors, 0 build errors)
+
+  FILES CREATED:
+  ── UI Components ──────────────────────────────────────────
+  components/ui/Button.tsx        Variants: primary/secondary/ghost/danger/success
+  components/ui/Input.tsx         Label, error, hint support
+  components/ui/Textarea.tsx      Resizable off, label, error
+  components/ui/Select.tsx        Options array, placeholder
+  components/ui/Badge.tsx         Variants: default/primary/success/warning/danger/info
+  components/ui/Spinner.tsx       Sizes: sm/md/lg
+  components/ui/Card.tsx          Card, CardHeader, CardTitle
+  components/ui/Modal.tsx         ESC to close, footer, sizes
+
+  ── Layout ─────────────────────────────────────────────────
+  components/layout/Sidebar.tsx   Royal Blue nav, role-aware nav items, sign out
+  app/layout.tsx                  Root layout (RASA metadata)
+  app/page.tsx                    Redirects to /login or /dashboard based on session
+  app/(auth)/layout.tsx           Centered auth layout with RASA logo
+  app/(dashboard)/layout.tsx      Sidebar + main content area
+
+  ── Auth Pages ─────────────────────────────────────────────
+  app/(auth)/login/page.tsx        OAuth + email/password, callbackUrl support
+  app/(auth)/register/page.tsx     Register with role selection
+  app/(auth)/reset-password/page.tsx  Forgot password form
+
+  ── Dashboard Pages ────────────────────────────────────────
+  app/(dashboard)/dashboard/page.tsx       Role-aware stat cards
+  app/(dashboard)/volunteer/page.tsx       Profile editor, skills/interests toggles
+  app/(dashboard)/discovery/page.tsx       Mission search + apply
+  app/(dashboard)/application/page.tsx     My applications + withdraw
+  app/(dashboard)/participation/page.tsx   Check-in history
+  app/(dashboard)/feedback/page.tsx        Star rating modal
+  app/(dashboard)/wallet/page.tsx          Balance, history, transfer
+  app/(dashboard)/marketplace/page.tsx     Offers grid, redeem modal
+  app/(dashboard)/organization/page.tsx    Create/list orgs
+  app/(dashboard)/opportunity/page.tsx     List missions by org
+  app/(dashboard)/opportunity/create/page.tsx  Create mission form
+  app/(dashboard)/gaia/page.tsx            AI chat interface
+  app/(dashboard)/debug/page.tsx           Debug panel (debug mode only)
+  app/(dashboard)/admin/users/page.tsx     User table
+
+  ── Database Models ────────────────────────────────────────
+  lib/db/models/user.model.ts         8 roles including platform_* admin roles
+  lib/db/models/volunteer.model.ts    Skills, interests, availability, location
+  lib/db/models/organization.model.ts NGO + reward partner orgs
+  lib/db/models/opportunity.model.ts  Mission details + geo indexes
+  lib/db/models/application.model.ts  With scoreBreakdown field
+  lib/db/models/participation.model.ts QR check-in/out tracking
+  lib/db/models/qr_token.model.ts     TTL index (auto-expire after 10 min)
+  lib/db/models/feedback.model.ts     Bidirectional (volunteer ↔ ngo_admin)
+  lib/db/models/ledger.model.ts       Immutable audit trail
+  lib/db/models/wallet.model.ts       Balance + daily transfer cap tracking
+  lib/db/models/marketplace.model.ts  Offers + redemptions
+  lib/db/models/vault.model.ts        R2 document metadata + AI status
+
+  ── Modules ────────────────────────────────────────────────
+  modules/volunteer/          Profile CRUD, completeness score (7 fields)
+  modules/organization/       Create/update/list orgs
+  modules/opportunity/        Mission CRUD with duration calculation
+  modules/discovery/          Search + recommendation via matching algorithm
+  modules/discovery/matching.ts  FULL ALGORITHM:
+                                 score = 0.35×skill_coverage + 0.25×interest_alignment
+                                       + 0.25×location_decay + 0.15×availability_overlap
+                                 Jaccard for skills/interests, e^(-km/15) for location,
+                                 time-window overlap for availability
+  modules/application/        Apply (with completeness check + duplicate guard)
+  modules/participation/      QR token generation, check-in, check-out, credits award
+  modules/ledger/             Credit/debit, transfer (500/day cap), history
+  modules/feedback/           Submit (once per role per participation)
+  modules/marketplace/        List offers, redeem (stock check, debit credits)
+  modules/vault/              Upload to R2, fire-and-forget AI processing
+  modules/ai/                 Claude API — document intelligence + GAIA chat
+
+  ── API Routes ─────────────────────────────────────────────
+  POST   /api/auth/register
+  POST   /api/auth/forgot-password
+  GET    /api/volunteer/profile
+  PATCH  /api/volunteer/profile
+  GET    /api/organizations
+  POST   /api/organizations
+  GET    /api/organizations/[id]
+  PATCH  /api/organizations/[id]
+  GET    /api/opportunities
+  POST   /api/opportunities
+  GET    /api/opportunities/[id]
+  PATCH  /api/opportunities/[id]
+  GET    /api/discovery
+  GET    /api/applications
+  POST   /api/applications
+  POST   /api/applications/[id]/review
+  POST   /api/applications/[id]/withdraw
+  GET    /api/participation/my
+  POST   /api/participation/check-in
+  POST   /api/participation/check-out
+  POST   /api/participation/qr
+  GET    /api/wallet
+  POST   /api/wallet
+  POST   /api/feedback
+  GET    /api/marketplace
+  POST   /api/marketplace/[id]/redeem
+  POST   /api/gaia
+
+  ── Adapters ───────────────────────────────────────────────
+  adapters/email/postmark.ts       Send email via Postmark API
+  adapters/storage/r2.ts           Upload to Cloudflare R2 (AWS Sig V4)
+  adapters/maps/google.ts          Geocode address via Google Maps API
+
+  ── Scripts ────────────────────────────────────────────────
+  scripts/seeders/seed.ts          Creates 4 test users + 1 NGO + 2 missions + 2 offers
+                                   Run: npm run seed
+
+BUILD STATUS: ✅ PASSING
+  - 0 TypeScript errors
+  - 0 Next.js build errors
+  - 40 routes (38 dynamic + 2 static auth pages)
+
+SESSION 5 (PLATFORM TEST READINESS REVIEW)
+  Goal: Make platform ready for manual testing without altering production architecture.
+
+  FILES CREATED:
+  lib/debug/seed-accounts.ts        Canonical list of all 8 seed accounts + SEED_PASSWORD
+  lib/debug/auto-seed.ts            Idempotent startup seeder (creates only missing accounts)
+  lib/debug/guard.ts                isDebugMode = DEBUG_MODE=true && NODE_ENV!==production
+  instrumentation.ts                Next.js startup hook → auto-seeds on dev start
+  scripts/seeders/seed.ts           Updated: all 8 roles, 3 missions, 3 marketplace offers
+  app/(auth)/login/LoginForm.tsx    Client form with collapsible quick-login panel (debug only)
+  app/(auth)/login/page.tsx         Server wrapper — reads DEBUG_MODE, passes as prop
+  app/(dashboard)/debug/page.tsx    Updated: DB connectivity, seed account status table
+  app/(dashboard)/debug/DebugActions.tsx  Re-seed button (client component)
+  app/api/debug/seed/route.ts       POST /api/debug/seed — manual re-seed (admin only)
+  Documentation/testing.md          Full manual testing guide
+
+  DEBUG MODE SYSTEM:
+  - Set DEBUG_MODE=true in .env to activate
+  - On npm run dev: auto-seeds all 8 accounts (idempotent, only missing ones created)
+  - Login page: collapsible "Test Accounts" panel with one-click login for all 8 roles
+  - /debug dashboard: live DB connectivity + seed account status + Re-run Seed button
+  - All debug features are hard-disabled in production (server-side guard, not env-only)
+
+  SEED ACCOUNTS (password: Rasa1234!):
+    admin@rasa.dev         platform_admin
+    moderator@rasa.dev     platform_moderator
+    support@rasa.dev       platform_support
+    analyst@rasa.dev       platform_analyst
+    ngo@rasa.dev           ngo_admin
+    fieldrep@rasa.dev      field_rep
+    volunteer@rasa.dev     volunteer           (150 credits, full profile)
+    partner@rasa.dev       reward_partner
+
+SESSION 7 (BUG FIX — TEST LOGIN SYSTEM)
+  Goal: Investigate and fix test account login. All 8 accounts were unreachable
+        despite correct users/passwords in MongoDB.
+
+  ROOT CAUSE (confirmed via source code trace + curl testing):
+    auth.ts had session.strategy = "database"
+    Auth.js v5 Credentials provider ALWAYS issues a JWT cookie on login,
+    regardless of the configured strategy. The database strategy then tries to
+    look up that JWT in the sessions collection as a session token → not found
+    → null session → dashboard redirects back to /login. A silent infinite loop.
+
+    Secondary: no jwt() callback → role was never stored in the JWT.
+    Secondary: session() callback read from `user` (database pattern) instead of
+               `token` (JWT pattern) → role and id were undefined in session.
+
+  VERIFICATION:
+    - DB query: all 8 users present, passwords correct, bcrypt verified ✓
+    - curl test: POST /api/auth/callback/credentials → 302 to /dashboard + cookie set
+    - curl test: GET /api/auth/session with session cookie → {} (empty) BEFORE fix
+    - After fix: role=platform_admin, HAS_ID for all 8 accounts ✓
+
+  FIX (auth.ts):
+    1. Changed session.strategy from "database" to "jwt"
+    2. Added jwt() callback: stores token.id and token.role on sign-in
+    3. Changed session() callback: reads from token (not user)
+    4. Added declare module "next-auth/jwt" { interface JWT { id, role } }
+
+  DOCUMENTATION CREATED:
+    Documentation/testing/test_login_system.txt  — how sessions work, how to debug
+    Documentation/testing/debug_mode.txt          — how to activate, what it enables
+    Documentation/testing/seed_accounts.txt       — account list, how to add accounts
+
+SESSION 6 (PUBLIC LANDING PAGE)
+  Goal: Design and implement the public front page. Apple-style product storytelling.
+        Cinematic, minimal, visionary. Communicates: "RASA = new economy for contribution."
+
+  FILES CREATED:
+  app/(public)/layout.tsx            Minimal public layout (overflow-x-hidden)
+  app/(public)/page.tsx              Root landing page — assembles all 8 sections
+  components/landing/FadeIn.tsx      IntersectionObserver scroll-fade client component
+  components/landing/NavBar.tsx      Minimal dark nav (logo + links + CTA)
+  components/landing/HeroSection.tsx Full-viewport hero, ambient glows, CSS animations
+  components/landing/ProblemSection.tsx  3-card problem grid (AI wave, old economy, invisible value)
+  components/landing/IdeaSection.tsx     Idea statement + 10 contribution type pills
+  components/landing/HowItWorksSection.tsx  3 pillars: Participate / Earn / Build
+  components/landing/WalletSection.tsx   2-col: copy + CSS wallet card mockup
+  components/landing/OrganizationsSection.tsx  4-step org process
+  components/landing/FutureSection.tsx   Cinematic vision section
+  components/landing/CTASection.tsx      Final CTA + footer
+  Documentation/ui/frontpage_design.txt      Design philosophy, palette, typography
+  Documentation/ui/frontpage_components.txt  Component hierarchy, responsive breakpoints
+  Documentation/ui/frontpage_interactions.txt Animations, hover states, a11y notes
+
+  FILES REMOVED:
+  app/page.tsx                       Replaced by app/(public)/page.tsx
+
+  DESIGN DECISIONS:
+  - Deep space black palette (#050508 base) — not a light SaaS page
+  - Apple typographic hierarchy: font-thin headlines, font-light body
+  - Hero font size clamp(2.8rem, 6.5vw, 7.5rem) — scales across all devices
+  - One accent color: lotus (#C96BCF) — no rainbow of colors
+  - Ambient glow orbs via CSS radial-gradients (no images, no heavy assets)
+  - Hero animations: pure CSS @keyframes (no hydration, immediate render)
+  - Scroll animations: IntersectionObserver via FadeIn wrapper component
+  - Staggered delays on grids: 100-150ms per item (left-to-right ripple)
+  - Wallet mockup: CSS glass-morphism card, no external assets
+
+SESSION 9 (CREDIT FORMULA STANDARDISATION)
+  Goal: Remove NGO-controlled credit rates. Standardise to platform-controlled
+        formula: credits = floor(actual_minutes_worked). 1 credit per minute.
+
+  DESIGN DECISION:
+    NGOs may NOT set credit values. They specify only:
+      1. volunteer_capacity  — how many volunteers can attend
+      2. estimatedDurationMinutes — expected work duration
+
+    The platform calculates credits from verified attendance timestamps.
+    This ensures fairness, economy stability, and manipulation prevention.
+
+  DATA CHANGES:
+    lib/db/models/opportunity.model.ts  creditsPerHour → estimatedDurationMinutes
+    modules/opportunity/types.ts        Same (DTO, CreateInput, UpdateInput)
+    modules/opportunity/validators.ts   creditsPerHour removed, estimatedDurationMinutes added (1–1440)
+    modules/opportunity/repository.ts   totalCreditsPool = estimatedDurationMinutes × capacity
+
+  CREDIT CALCULATION CHANGE (checkout):
+    modules/participation/service.ts
+    BEFORE: credits = floor(actualHours) × opportunity.creditsPerHour
+    AFTER:  credits = floor(actualMinutes)   ← 1 credit per minute, no NGO rate
+
+  UI CHANGES:
+    app/(dashboard)/opportunity/create/page.tsx  "Credits per hour" → "Estimated duration (minutes)"
+                                                  Informational message added explaining platform control
+    app/(dashboard)/discovery/page.tsx           Badge: "{X} cr/hr" → "~{X} credits"
+    app/(dashboard)/opportunity/page.tsx         creditsPerHour removed, estimatedDurationMinutes displayed
+
+  SEEDER UPDATED:
+    scripts/seeders/seed.ts  All 3 seed missions updated with estimatedDurationMinutes
+
+  DOCUMENTATION CREATED:
+    Documentation/economy/credit_formula.txt       Formula, rounding rule, implementation reference
+    Documentation/economy/mission_credit_rules.txt Why credits are platform-controlled, prohibited patterns
+
+SESSION 8 (ROLE ARCHITECTURE + LOCATION MODEL FIX)
+  Goal: Correct role-based dashboard architecture, replace lat/lng inputs with
+        structured address fields, and create system documentation.
+
+  ROLE-BASED DASHBOARD ROUTING:
+  app/(dashboard)/dashboard/page.tsx         → redirect dispatcher (reads role, redirects)
+  app/(dashboard)/dashboard/volunteer/page.tsx  Volunteer dashboard (live data: wallet, apps, profile)
+  app/(dashboard)/dashboard/ngo/page.tsx        NGO Admin dashboard (live data: orgs, missions, apps)
+  app/(dashboard)/dashboard/admin/page.tsx      Platform admin dashboard (live: user/org/mission counts)
+  app/(dashboard)/dashboard/partner/page.tsx    Reward Partner dashboard (live: offer/redemption counts)
+  app/(dashboard)/dashboard/field/page.tsx      Field Rep dashboard (live: today's check-ins)
+  components/layout/Sidebar.tsx              Dashboard hrefs updated per role + field_rep nav added
+
+  LOCATION MODEL FIX:
+  - Removed lat/lng manual inputs from all forms
+  - Added structured address fields: street, city, province, postalCode, country
+  - Geocoding now happens server-side in API routes (adapters/maps/google.ts)
+  - Graceful fallback: lat/lng default to 0,0 if no Google Maps API key
+  - Models updated: opportunity.model.ts, volunteer.model.ts
+  - Types updated: modules/opportunity/types.ts, modules/volunteer/types.ts
+  - Validators updated: modules/opportunity/validators.ts, modules/volunteer/validators.ts
+  - Matching algorithm: lat/lng now coerced to 0 via ?? 0 if undefined (no-op when not set)
+
+  DOCUMENTATION CREATED:
+  Documentation/roles.md             8 roles, capabilities, dashboard routes
+  Documentation/dashboards.md        Dashboard architecture, routing, data fetching
+  Documentation/wallet-system.md     Credits system, ledger, transfers, redemptions
+  Documentation/location-model.md    Address fields, geocoding flow, matching impact
+  Documentation/matchmaking.md       Algorithm formula, all 4 components explained
+  Documentation/system-workflows.md  End-to-end flows for all user journeys
+
+SESSION 11 (ORGANIZATION ENTITY MODEL & ONBOARDING FLOW)
+  Goal: Fix the conceptual error where logged-in users could create organizations.
+        Organizations are primary entities. Users belong to organizations.
+
+  CORE CHANGE:
+    The platform no longer allows any user to create an organization from the dashboard.
+    Organization creation happens only via the admin-approval flow.
+
+  NEW MODELS:
+    lib/db/models/organization-request.model.ts   Public onboarding request queue
+    lib/db/models/organization-membership.model.ts User ↔ org relationship with internal role
+
+  MODEL EXPANDED:
+    lib/db/models/organization.model.ts
+      OrgType: 2 types → 5 types (ngo, corporation, government, university, marketplace_partner)
+      Added fields: mission, contactEmail, contactPhone, headquarters, focusAreas,
+                    sdgAlignment, verificationStatus
+
+  MODULE CHANGES:
+    modules/organization/types.ts      New types: OrgType (5), ORG_TYPE_LABELS, OrgHeadquarters,
+                                       OrganizationRequestDTO, SubmitOrgRequestInput, ReviewOrgRequestInput
+    modules/organization/validators.ts New schemas: submitOrgRequestSchema, reviewOrgRequestSchema
+    modules/organization/repository.ts Added: submitOrganizationRequest, findOrgRequestById,
+                                       listOrgRequests, approveOrgRequest, rejectOrgRequest
+    modules/organization/service.ts    Removed createOrg(), added submitOrgRequest(),
+                                       reviewOrgRequest(), updateOrgProfile()
+
+  NEW API ENDPOINTS:
+    POST /api/organization-requests               — Public, submit org request
+    GET  /api/organization-requests               — Platform admin, list requests
+    POST /api/organization-requests/[id]/review   — Platform admin, approve or reject
+
+  CHANGED API:
+    POST /api/organizations  — REMOVED (org creation only on approval, not by users)
+
+  UI CHANGES:
+    app/(auth)/register/page.tsx               Two-path choice: volunteer | org request
+    app/(auth)/register/organization/page.tsx  NEW: Public org request form
+    app/(dashboard)/organization/page.tsx      Replaced "Create" with "Manage Profile" editor
+    app/(dashboard)/dashboard/ngo/page.tsx     Fixed "Create one" → org request link + profile link
+    app/(dashboard)/dashboard/partner/page.tsx Fixed "Create organisation" → org request link
+
+  DOCUMENTATION CREATED:
+    Documentation/architecture/organization_model.txt
+    Documentation/architecture/organizational_user_model.txt
+    Documentation/uiux/organization_onboarding_language.txt
+    Documentation/mvp_plan/organization_entity_rules.txt
+
+SESSION 10 (ROLE-BASED ECONOMIC RULES)
+  Goal: Enforce that only volunteers can earn mission credits. Other roles
+        may hold wallets but credits flow through different mechanisms.
+
+  NEW FUNCTION:
+    modules/ledger/service.ts — awardMissionCredits()
+      Enforces role === "volunteer" before writing any mission_credit entry.
+      Returns { success: false } for non-volunteers (no exception thrown to client).
+
+  LEDGER TYPES ADDED:
+    mission_credit       — volunteer mission attendance (replaces credit_earned)
+    marketplace_purchase — volunteer buys marketplace offer (replaces redemption)
+    marketplace_sale     — seller receives credits on redemption (new)
+    transfer_sent        — debit side of transfer (replaces transfer_out)
+    transfer_received    — credit side of transfer (replaces transfer_in)
+    adjustment           — platform admin manual correction
+    (legacy aliases retained for backward compatibility)
+
+  MARKETPLACE CREDIT FLOW (NEW):
+    modules/marketplace/service.ts — redeemOffer()
+    When volunteer redeems offer:
+      1. Volunteer wallet: -creditCost (marketplace_purchase)
+      2. Seller wallet:    +creditCost (marketplace_sale) [fire-and-forget]
+    Seller identified via offer.organizationId → org.adminUserIds[0]
+
+  API ENFORCEMENT:
+    app/api/applications/route.ts   POST now checks role === "volunteer" (403 if not)
+    app/api/participation/check-out/route.ts  passes userRole to checkOut()
+
+  UI ENFORCEMENT:
+    app/(dashboard)/discovery/page.tsx  Apply button hidden for non-volunteers
+    app/(dashboard)/dashboard/partner/page.tsx  Shows salesRevenue from ledger
+
+  DOCUMENTATION CREATED:
+    Documentation/economy/wallet_roles.txt         Wallet behavior per role, transaction types
+    Documentation/economy/credit_issuance_rules.txt  Full lifecycle, enforcement, prohibited patterns
+
+NEXT STEPS TO LAUNCH:
+  1. Fill in .env (see 01_env_setup_guide.txt) — set DEBUG_MODE=true for testing
+  2. Run: npm run dev  (auto-seeds accounts on first start)
+     OR: npm run seed  (full wipe + re-seed with missions and offers)
+  3. Visit http://localhost:3000
+  4. Click "Test Accounts" panel on login page and sign in with any role
+  5. See Documentation/testing.md for full test flows
